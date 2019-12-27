@@ -1,0 +1,145 @@
+# _*_ coding: UTF-8 _*_
+
+
+import re
+import requests
+import telnetlib
+import threading
+import urllib.request
+from tkinter import *
+import winreg
+
+x = threading.Semaphore(100)
+ipport = []
+an = {}
+
+class iphq: #代理IP地址获取类
+    def __init__(self):
+        pass
+
+    def wz(self): #爬取网页内容及简单伪装
+        url = ('http://www.66ip.cn/areaindex_35/index.html' )
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.80 Safari/537.36',
+            'Host': 'jandan.net'
+        }
+        response = requests.get(url=url, headers=headers)
+        response.encoding = 'utf-8'
+        html = response.text
+        return html
+
+    def xinxi(self,wy): #获取IP地址
+        ip = re.findall(r'<td>(\d+?\.\d+?\.\d+?\.\d+?)</td>',wy)
+        #port = re.findall(r'<td data-title="PORT">(.*?)</td>',wy)
+        port = re.findall(r'<td>(\d+\d+\d+\d)</td>', wy)
+        return ip,port
+
+    def xunhuan(self): #循环爬取网页内容并串联函数
+        for i in range(0,1):
+            b = self.wz()
+            ip,port = self.xinxi(b)
+            for j in range(len(port)):
+                threading.Thread(target=self.telnet,args=(ip[j],port[j])).start()
+        but.Frame_1(ipport)
+
+    def telnet(self,ip,port): #telnet IP端口地址确认联通性
+        x.acquire()
+        try:
+            telnetlib.Telnet(ip,port,timeout=0.5)
+            ipport.append(str(ip+':'+port))
+        except:
+            a=1
+
+        x.release()
+class button_0:
+
+    def __init__(self):
+        self.buttonlist = []
+        self.lablelist = []
+    def Frame_1(self,ippo): #定义显示IP 引用按钮
+        kt = Frame(width=50)
+        kt.grid(row=0, column=0, sticky=E)
+
+        for i in range(len(ippo)):
+            name = 'w%s' % i
+            self.Label_1(kt,i,ippo)
+            self.button_1(kt, i)
+            an.update({name:i})
+
+    def button_1(self,kt,i): #定义按钮
+        names = locals()
+        x = '启动' + str(i)
+        name = 'w%s' % i
+        names['w%s' % i] = Button(kt, width=10, text=x, command=lambda: enableProxy(name))
+        names['w%s' % i].grid(row=i, column=1, sticky=E)
+        self.buttonlist.append(names['w%s' % i])
+
+    def Label_1(self,kt,i,ippo): #定义按钮
+        names = locals()
+        name = 'l%s' % i
+        names['l%s' % i] = Label(kt,width=25,text='%s'%(ippo[i]))
+        names['l%s' % i].grid(row=i, column=0, sticky=E)
+        self.lablelist.append(names['l%s' % i])
+
+xpath = "Software\Microsoft\Windows\CurrentVersion\Internet Settings"#表项路径
+but = button_0()
+def setProxy(enable, proxyIp, IgnoreIp):
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, xpath, 0, winreg.KEY_WRITE)
+        winreg.SetValueEx(key, "ProxyEnable", 0, winreg.REG_DWORD, enable)
+        winreg.SetValueEx(key, "ProxyServer", 0, winreg.REG_SZ, proxyIp)
+        winreg.SetValueEx(key, "ProxyOverride", 0, winreg.REG_SZ, IgnoreIp)
+    except Exception as e:
+        print("ERROR: " + str(e.args))
+    finally:
+        None
+
+
+
+def enableProxy(wName):# 开启，定义代理服务器ip及端口，忽略ip内容(分号分割)
+    proxyIP = ipport[an[wName]]
+    IgnoreIp = "172.*;192.*;"
+    setProxy(1, proxyIP, IgnoreIp)
+    a = 1
+    print_1(a)
+
+
+def disableProxy():# 关闭清空代理
+    a = 2
+    setProxy(0, "", "")
+    print_1(a)
+
+def print_1(a): #显示启动效果
+    kt_1 = Frame(width=25)
+    kt_1.grid(row=0, column=1, sticky=E)
+    if a == 1 :
+        e = Label(kt_1, width=25, text='代理启动成功' )
+        e.grid(row=0, column=0, sticky=E)
+    elif a == 2:
+        e = Label(kt_1, width=25, text='代理已关闭')
+        e.grid(row=0, column=0, sticky=E)
+
+def del_1():
+    kt = but.buttonlist
+    lb = but.lablelist
+    for i in kt:
+        i.destroy()
+    for j in lb:
+        j.destroy()
+    ipport.clear()
+    an.clear()
+    ip = iphq()
+    ip.xunhuan()
+
+if __name__ == '__main__':
+    #but = button_0().Frame_1(ipport)
+    root = Tk() #定义主窗口
+    root.title('ie代理')
+    root.geometry('550x550')
+    ip = iphq()
+    ip.xunhuan()
+    exit_1 = Button(root, text='刷新',command=del_1)
+    exit_1.grid(row=1, column=2, sticky=E)
+    exit_1 = Button(root, text='关闭',command=disableProxy)
+    exit_1.grid(row=0, column=2, sticky=E)
+    root.mainloop()
